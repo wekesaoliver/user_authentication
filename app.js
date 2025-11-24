@@ -29,11 +29,13 @@ app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
 app.use(session({ secret: "cats", resave: false, saveUninitialized: false }));
+app.use(passport.initialize());
 app.use(passport.session());
 app.use(express.urlencoded({ extended: false }));
 
 passport.use(
     new LocalStrategy(async (username, password, done) => {
+        console.log("LocalStrategy called with", username);
         try {
             const { rows } = await pool.query(
                 "SELECT * FROM users WHERE username = $1",
@@ -47,6 +49,7 @@ passport.use(
             if (user.password !== password) {
                 return done(null, false, { message: "Incorrect password" });
             }
+            console.log("LocalStrategy success for", username);
             return done(null, user);
         } catch (err) {
             return done(err);
@@ -55,14 +58,16 @@ passport.use(
 );
 
 passport.serializeUser((user, done) => {
-    done(null, user.id);
+    console.log("serializeUser username:", user.username);
+    done(null, user.username);
 });
 
-passport.deserializeUser(async (id, done) => {
+passport.deserializeUser(async (username, done) => {
     try {
-        const { rows } = await pool.query("SELECT * FROM users WHERE id = $1", [
-            id,
-        ]);
+        const { rows } = await pool.query(
+            "SELECT * FROM users WHERE username = $1",
+            [username]
+        );
         const user = rows[0];
 
         done(null, user);
@@ -77,6 +82,7 @@ app.use((req, res, next) => {
 });
 
 app.get("/", (req, res) => {
+    console.log("GET / req.user:", req.user);
     res.render("index", { user: req.user });
 });
 app.get("/sign-up", (req, res) => res.render("sign-up-form"));
