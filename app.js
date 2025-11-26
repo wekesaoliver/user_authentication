@@ -46,7 +46,10 @@ passport.use(
             if (!user) {
                 return done(null, false, { message: "Incorrect username" });
             }
-            if (user.password !== password) {
+
+            const match = await bcrypt.compare(password, user.password);
+
+            if (!match) {
                 return done(null, false, { message: "Incorrect password" });
             }
             console.log("LocalStrategy success for", username);
@@ -89,9 +92,10 @@ app.get("/sign-up", (req, res) => res.render("sign-up-form"));
 
 app.post("/sign-up", async (req, res, next) => {
     try {
+        const hashedPassword = await bcrypt.hash(req.body.password, 10);
         await pool.query(
             "INSERT INTO users (username, password) VALUES ($1, $2)",
-            [req.body.username, req.body.password]
+            [req.body.username, hashedPassword]
         );
         res.redirect("/");
     } catch (err) {
